@@ -13,7 +13,16 @@ if (vIdx !== -1) {
   args.splice(vIdx, 2);
 }
 
-const allArgs = ['--yes', '--prefer-online', `@larksuite/openclaw-lark-tools@${version}`, ...args];
+// Check for --silent flag to suppress interactive prompts
+const silentIdx = args.indexOf('--silent');
+const silent = silentIdx !== -1;
+if (silentIdx !== -1) {
+  args.splice(silentIdx, 1);
+}
+
+const baseArgs = ['--prefer-online', `@larksuite/openclaw-lark-tools@${version}`];
+// Add --yes only if not silent (--silent handles prompts differently)
+const allArgs = silent ? baseArgs : ['--yes', ...baseArgs, ...args];
 
 try {
   if (process.platform === 'win32') {
@@ -29,7 +38,7 @@ try {
       },
     });
   } else {
-    execFileSync('npx', allArgs, { stdio: 'inherit' });
+    execFileSync('npx', silent ? [...allArgs, '--quiet'] : allArgs, { stdio: 'inherit' });
   }
 } catch (error) {
   process.exit(error.status ?? 1);
