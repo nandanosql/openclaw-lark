@@ -4,7 +4,7 @@
  *
  * feishu_drive_file tool -- Manage Feishu Drive files.
  *
- * Actions: list, get_meta, copy, move, delete, upload, download
+ * Actions: list, get_meta, copy, move, delete, upload, download, create_folder
  *
  * Uses the Feishu Drive API:
  *   - list:        GET    /open-apis/drive/v1/files
@@ -220,6 +220,19 @@ const FeishuDriveFileSchema = Type.Union([
       Type.Integer({
         description:
           '文件大小（字节，可选）。如果提供了 file_path，会自动计算；如果使用 file_content_base64，则必须提供此参数。',
+      }),
+    ),
+  }),
+
+  // CREATE FOLDER
+  Type.Object({
+    action: Type.Literal('create_folder'),
+    name: Type.String({
+      description: '文件夹名称（必填）',
+    }),
+    folder_token: Type.Optional(
+      Type.String({
+        description: '父文件夹 token（可选）。不填写时在云空间根目录创建',
       }),
     ),
   }),
@@ -733,6 +746,37 @@ export function registerFeishuDriveFileTool(api: OpenClawPluginApi): boolean {
                   file_content_base64: base64Content,
                   size: fileBuffer.length,
                 });
+            // -----------------------------------------------------------------
+            // CREATE FOLDER
+            // -----------------------------------------------------------------
+            case 'create_folder': {
+              log.info(`create_folder: name=${p.name}, folder_token=${p.folder_token || '(root)'}`);
+
+              const createRes = await client.invoke(
+                'feishu_drive_file.create_folder',
+                (sdk, opts) =>
+                  sdk.drive.file.create(
+                    {
+                      data: {
+                        name: p.name,
+                        parent_node: p.folder_token || '',
+                        folder_token: p.folder_token || '',
+                        type: 'folder' as any,
+                      },
+                    },
+                    opts,
+                  ),
+                { as: 'user' },
+              );
+              assertLarkOk(createRes);
+
+              const folderData = createRes.data as DriveFileData | undefined;
+              log.info(`create_folder: file_token=${folderData?.file?.token ?? 'unknown'}`);
+
+              return json({
+                file: folderData?.file,
+              });
+            }
               }
             }
           }
